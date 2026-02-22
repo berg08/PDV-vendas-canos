@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PVC Control Cloud</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; --card: #ffffff; --success: #10b981; --danger: #ef4444; }
+        body { font-family: sans-serif; margin: 0; background: var(--bg); color: var(--text); overflow-x: hidden; }
+        header { background: var(--primary); color: white; padding: 15px; display: flex; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+        .menu-icon { font-size: 24px; cursor: pointer; margin-right: 20px; padding: 5px; }
+        header h1 { font-size: 1.2rem; margin: 0; flex-grow: 1; }
+        .sidebar { position: fixed; top: 0; left: -280px; width: 260px; height: 100%; background: var(--card); box-shadow: 4px 0 10px rgba(0,0,0,0.1); transition: 0.3s; z-index: 200; padding-top: 20px; }
+        .sidebar.active { left: 0; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 150; }
+        .overlay.active { display: block; }
+        .container { padding: 20px; max-width: 600px; margin: 0 auto; }
+        .card { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: #64748b; }
+        input, select, button { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
+        button { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: background 0.3s ease; }
+        button:hover { filter: brightness(1.1); }
+        button:active { transform: translateY(1px); } /* Efeito de click */
+        .btn-venda { background: var(--success); }
+        .btn-danger { background: var(--danger); padding: 8px; font-size: 14px; width: auto; color: white; border-radius: 5px; }
+        .cli-box { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
+        .cli-info b { display: block; font-size: 1.1rem; color: var(--primary); }
+        .cli-info span { display: block; font-size: 0.85rem; color: #64748b; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 12px 5px; border-bottom: 1px solid #eee; }
+        .hidden { display: none; }
+        .item-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 0.95rem; }
+        .item-row:last-child { border-bottom: none; }
+        
+        /* --- Novas Estilos para Animações --- */
+        #feedback-message {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            display: flex;
+            align-items: center;
+        }
+        #feedback-message.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        #feedback-message.success { background-color: var(--success); }
+        #feedback-message.error { background-color: var(--danger); }
+        #feedback-message.info { background-color: var(--primary); }
+        #feedback-message .icon { font-size: 1.5rem; margin-right: 10px; }
+
+        /* Estilo para tela de carregamento */
+        .loading-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        .loading-screen.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .spinner {
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid var(--primary);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-text { margin-top: 15px; color: var(--primary); font-weight: bold; font-size: 1.1rem; }
+
+    </style>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+<div class="sidebar" id="sidebar">
+    <div style="padding: 20px; font-size: 1.5rem; font-weight: bold; color: var(--primary);">PVC Cloud</div>
+    <div class="sidebar-item" onclick="mudarTela('venda', '🛒 Nova Venda')">🛒 Nova Venda</div>
+    <div class="sidebar-item" onclick="mudarTela('estoque', '📦 Estoque / Produtos')">📦 Estoque / Produtos</div>
+    <div class="sidebar-item" onclick="mudarTela('clientes-cad', '🏪 Cadastrar Cliente')">🏪 Cadastrar Cliente</div>
+    <div class="sidebar-item" onclick="mudarTela('clientes-ver', '👥 Verificar Clientes')">👥 Verificar Clientes</div>
+</div>
+
+<header>
+    <div class="menu-icon" onclick="toggleMenu()">☰</div>
+    <h1 id="titulo-pagina">Nova Venda</h1>
+</header>
+
+<div class="container">
+    <div id="tela-venda" class="content-section">
+        <div class="card">
+            <label>Cliente:</label>
+            <select id="sel-cliente"></select>
+            <label>Cano / Material:</label>
+            <select id="sel-produto"></select>
+            <label>Quantidade:</label>
+            <input type="number" id="venda-qtd" value="1">
+            <button style="background: #6366f1;" onclick="addItem()">+ Adicionar Item</button>
+        </div>
+        <div class="card">
+            <h3>Carrinho</h3>
+            <div id="carrinho-lista"></div>
+            <h2 id="venda-total">Total: R$ 0,00</h2>
+            <button class="btn-venda" onclick="finalizarVenda()">Finalizar Venda</button>
+        </div>
+    </div>
+
+    <div id="tela-estoque" class="content-section hidden">
+        <div class="card">
+            <h3>Novo Produto</h3>
+            <input type="text" id="p-nome" placeholder="Ex: Cano 100mm Esgoto">
+            <input type="number" id="p-preco" placeholder="Preço Unitário">
+            <input type="number" id="p-qtd" placeholder="Qtd no Caminhão">
+            <button onclick="salvarProduto()">Salvar na Nuvem</button>
+        </div>
+        <div class="card">
+            <table>
+                <thead><tr><th>Nome</th><th>Preço</th><th>Qtd</th></tr></thead>
+                <tbody id="lista-estoque"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tela-clientes-cad" class="content-section hidden">
+        <div class="card">
+            <h3>Dados do Cliente</h3>
+            <input type="text" id="c-nome" placeholder="Nome do Depósito">
+            <input type="tel" id="c-tel" placeholder="Celular (00) 00000-0000">
+            <input type="text" id="c-end" placeholder="Endereço">
+            <input type="text" id="c-cnpj" placeholder="CNPJ (Opcional)">
+            <button onclick="salvarCliente()">Cadastrar na Nuvem</button>
+        </div>
+    </div>
+
+    <div id="tela-clientes-ver" class="content-section hidden">
+        <div class="card">
+            <h3>Lista de Clientes</h3>
+            <div id="lista-clientes-listagem">Carregando...</div>
+        </div>
+    </div>
+</div>
+
+<div id="feedback-message" class="hidden"><span class="icon"></span> <span id="feedback-text"></span></div>
+
+<div id="loading-screen" class="loading-screen">
+    <div class="spinner"></div>
+    <div class="loading-text">Carregando...</div>
+</div>
+
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot } 
+    from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // SEU firebaseConfig AQUI:
+    const firebaseConfig = {
+        apiKey: "AIzaSyCx4hnaqKk3VMNIsm3iPTBx1uwtN8Dr54E",
+        authDomain: "vendaspvc-f0473.firebaseapp.com",
+        projectId: "vendaspvc-f0473",
+        storageBucket: "vendaspvc-f0473.firebasestorage.app",
+        messagingSenderId: "711474053858",
+        appId: "1:711474053858:web:23c064cb31d4de648294bb"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let db_produtos = [];
+    let db_clientes = [];
+    let carrinho = [];
+
+    // --- FUNÇÕES DE FEEDBACK E CARREGAMENTO ---
+    function showFeedback(message, type = 'info', icon = '') {
+        const feedbackDiv = document.getElementById('feedback-message');
+        const feedbackText = document.getElementById('feedback-text');
+        const feedbackIcon = feedbackDiv.querySelector('.icon');
+
+        feedbackText.innerText = message;
+        feedbackIcon.innerText = icon; // Pode ser um emoji como '✅', '❌', 'ℹ️'
+
+        feedbackDiv.className = ''; // Limpa classes anteriores
+        feedbackDiv.classList.add(type, 'show');
+
+        setTimeout(() => {
+            feedbackDiv.classList.remove('show');
+        }, 3000); // Some após 3 segundos
+    }
+
+    function showLoading() {
+        document.getElementById('loading-screen').classList.add('show');
+    }
+
+    function hideLoading() {
+        document.getElementById('loading-screen').classList.remove('show');
+    }
+
+    // --- SINCRONIZAÇÃO EM TEMPO REAL ---
+    onSnapshot(collection(db, "produtos"), (snapshot) => {
+        db_produtos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderEstoque();
+        atualizarSelects();
+        hideLoading(); // Esconde o loading depois de carregar os dados
+    }, (error) => {
+        console.error("Erro ao carregar produtos:", error);
+        showFeedback("Erro ao carregar produtos!", 'error', '❌');
+        hideLoading();
+    });
+
+    onSnapshot(collection(db, "clientes"), (snapshot) => {
+        db_clientes = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderClientes();
+        atualizarSelects();
+        hideLoading(); // Esconde o loading depois de carregar os dados
+    }, (error) => {
+        console.error("Erro ao carregar clientes:", error);
+        showFeedback("Erro ao carregar clientes!", 'error', '❌');
+        hideLoading();
+    });
+
+    // --- FUNÇÕES GLOBAIS ---
+    window.toggleMenu = () => {
+        document.getElementById('sidebar').classList.toggle('active');
+        document.getElementById('overlay').classList.toggle('active');
+    };
+
+    window.mudarTela = (tela, titulo) => {
+        document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden'));
+        document.getElementById('tela-' + tela).classList.remove('hidden');
+        document.getElementById('titulo-pagina').innerText = titulo;
+        if(document.getElementById('sidebar').classList.contains('active')) toggleMenu();
+        // Opcional: mostrar loading ao mudar de tela se a renderização for complexa
+        // showLoading(); 
+        // setTimeout(hideLoading, 500); // Esconde depois de um pequeno tempo
+    };
+
+    window.salvarProduto = async () => {
+        showLoading();
+        const nome = document.getElementById('p-nome').value;
+        const preco = parseFloat(document.getElementById('p-preco').value);
+        const qtd = parseInt(document.getElementById('p-qtd').value);
+        if(!nome || isNaN(preco) || isNaN(qtd)) {
+            hideLoading();
+            return showFeedback("Preencha todos os campos corretamente!", 'error', '⚠️');
+        }
+        try {
+            await addDoc(collection(db, "produtos"), { nome, preco, qtd });
+            document.getElementById('p-nome').value = ''; 
+            document.getElementById('p-preco').value = ''; 
+            document.getElementById('p-qtd').value = '';
+            showFeedback("Produto salvo na nuvem!", 'success', '✅');
+        } catch (e) {
+            console.error("Erro ao salvar produto: ", e);
+            showFeedback("Erro ao salvar produto!", 'error', '❌');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    window.salvarCliente = async () => {
+        showLoading();
+        const nome = document.getElementById('c-nome').value;
+        const tel = document.getElementById('c-tel').value;
+        const end = document.getElementById('c-end').value;
+        const cnpj = document.getElementById('c-cnpj').value;
+        if(!nome || !tel) {
+            hideLoading();
+            return showFeedback("Nome e Celular são obrigatórios!", 'error', '⚠️');
+        }
+        try {
+            await addDoc(collection(db, "clientes"), { nome, tel, end, cnpj });
+            document.getElementById('c-nome').value = '';
+            document.getElementById('c-tel').value = '';
+            document.getElementById('c-end').value = '';
+            document.getElementById('c-cnpj').value = '';
+            showFeedback("Cliente cadastrado com sucesso!", 'success', '✅');
+            mudarTela('clientes-ver', '👥 Verificar Clientes');
+        } catch (e) {
+            console.error("Erro ao salvar cliente: ", e);
+            showFeedback("Erro ao salvar cliente!", 'error', '❌');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    window.excluirCliente = async (id) => {
+        if(confirm("Tem certeza que deseja excluir este cliente permanentemente?")) {
+            showLoading();
+            try {
+                await deleteDoc(doc(db, "clientes", id));
+                showFeedback("Cliente excluído!", 'success', '🗑️');
+            } catch (e) {
+                console.error("Erro ao excluir cliente: ", e);
+                showFeedback("Erro ao excluir cliente!", 'error', '❌');
+            } finally {
+                hideLoading();
+            }
+        }
+    };
+
+    window.addItem = () => {
+        const pId = document.getElementById('sel-produto').value;
+        const qtd = parseInt(document.getElementById('venda-qtd').value);
+        const p = db_produtos.find(prod => prod.id == pId);
+
+        if(!pId || isNaN(qtd) || qtd <= 0) {
+            return showFeedback("Selecione um produto e uma quantidade válida.", 'error', '⚠️');
+        }
+        if(!p) {
+            return showFeedback("Produto não encontrado no estoque.", 'error', '❌');
+        }
+        if(p.qtd < qtd) {
+            return showFeedback("Estoque insuficiente para esta quantidade!", 'error', '⚠️');
+        }
+        
+        // Verifica se o item já está no carrinho
+        const itemExistente = carrinho.find(item => item.id === p.id);
+        if (itemExistente) {
+            itemExistente.qtdVenda += qtd;
+        } else {
+            carrinho.push({ ...p, qtdVenda: qtd });
+        }
+        showFeedback(`${qtd}x ${p.nome} adicionado ao carrinho!`, 'info', '🛒');
+        document.getElementById('venda-qtd').value = 1; // Reseta a quantidade
+        renderCarrinho();
+    };
+
+    window.finalizarVenda = async () => {
+        if(carrinho.length === 0) {
+            return showFeedback("O carrinho está vazio!", 'error', '⚠️');
+        }
+        showLoading();
+        try {
+            for(let item of carrinho) {
+                const pRef = doc(db, "produtos", item.id);
+                await updateDoc(pRef, { qtd: item.qtd - item.qtdVenda });
+            }
+            // Registrar a venda em uma nova coleção "vendas" (opcional, mas bom para relatórios)
+            await addDoc(collection(db, "vendas"), {
+                clienteId: document.getElementById('sel-cliente').value,
+                itens: carrinho.map(item => ({
+                    produtoId: item.id,
+                    nome: item.nome,
+                    precoUnitario: item.preco,
+                    quantidadeVendida: item.qtdVenda
+                })),
+                total: carrinho.reduce((sum, item) => sum + (item.preco * item.qtdVenda), 0),
+                dataVenda: new Date()
+            });
+
+            showFeedback("Venda Finalizada! Estoque atualizado na nuvem.", 'success', '🎉');
+            carrinho = [];
+            renderCarrinho();
+        } catch (e) {
+            console.error("Erro ao finalizar venda: ", e);
+            showFeedback("Erro ao finalizar venda!", 'error', '❌');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    // --- RENDERIZAÇÃO ---
+    function renderEstoque() {
+        document.getElementById('lista-estoque').innerHTML = db_produtos.map(p => `<tr><td>${p.nome}</td><td>R$ ${p.preco.toFixed(2)}</td><td>${p.qtd}</td></tr>`).join('');
+    }
+
+    function renderClientes() {
+        const listaClientesDiv = document.getElementById('lista-clientes-listagem');
+        if (db_clientes.length === 0) {
+            listaClientesDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #64748b;">Nenhum cliente cadastrado ainda.</div>';
+            return;
+        }
+        listaClientesDiv.innerHTML = db_clientes.map(c => `
+            <div class="cli-box">
+                <div class="cli-info"><b>${c.nome}</b><span>📞 ${c.tel}</span><span>📍 ${c.end}</span></div>
+                <button class="btn-danger" onclick="excluirCliente('${c.id}')">Excluir</button>
+            </div>`).join('');
+    }
+
+    function atualizarSelects() {
+        document.getElementById('sel-cliente').innerHTML = db_clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+        document.getElementById('sel-produto').innerHTML = db_produtos.map(p => `<option value="${p.id}">${p.nome} (Esq: ${p.qtd})</option>`).join('');
+    }
+
+    function renderCarrinho() {
+        let total = 0;
+        const carrinhoListaDiv = document.getElementById('carrinho-lista');
+        if (carrinho.length === 0) {
+            carrinhoListaDiv.innerHTML = '<div style="text-align: center; padding: 10px; color: #64748b; font-style: italic;">Carrinho vazio.</div>';
+            document.getElementById('venda-total').innerText = `Total: R$ 0,00`;
+            return;
+        }
+        carrinhoListaDiv.innerHTML = carrinho.map(i => {
+            total += (i.preco * i.qtdVenda);
+            return `<div class="item-row"><span>${i.nome} (x${i.qtdVenda})</span><b>R$ ${(i.preco * i.qtdVenda).toFixed(2)}</b></div>`;
+        }).join('');
+        document.getElementById('venda-total').innerText = `Total: R$ ${total.toFixed(2)}`;
+    }
+
+    // Inicializa o carregamento dos dados na primeira vez
+    showLoading(); 
+    document.addEventListener('DOMContentLoaded', () => {
+        // Renderiza o carrinho e clientes vazios no início para evitar tela em branco
+        renderCarrinho();
+        renderClientes();
+    });
+</script>
+</body>
+</html>
