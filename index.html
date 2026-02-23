@@ -3,104 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PVC Control Cloud</title>
+    <title>PVC Control Pro + Analytics</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; --card: #ffffff; --success: #10b981; --danger: #ef4444; }
-        body { font-family: sans-serif; margin: 0; background: var(--bg); color: var(--text); overflow-x: hidden; }
-        header { background: var(--primary); color: white; padding: 15px; display: flex; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
-        .menu-icon { font-size: 24px; cursor: pointer; margin-right: 20px; padding: 5px; }
-        header h1 { font-size: 1.2rem; margin: 0; flex-grow: 1; }
-        .sidebar { position: fixed; top: 0; left: -280px; width: 260px; height: 100%; background: var(--card); box-shadow: 4px 0 10px rgba(0,0,0,0.1); transition: 0.3s; z-index: 200; padding-top: 20px; }
+        :root { --primary: #2563eb; --bg: #f1f5f9; --text: #1e293b; --card: #ffffff; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); }
+        header { background: var(--primary); color: white; padding: 15px; display: flex; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .menu-icon { font-size: 24px; cursor: pointer; margin-right: 20px; }
+        .sidebar { position: fixed; top: 0; left: -280px; width: 260px; height: 100%; background: var(--card); transition: 0.3s; z-index: 200; padding-top: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
         .sidebar.active { left: 0; }
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 150; }
+        .sidebar-item { padding: 15px 20px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .sidebar-item:hover { background: #f8fafc; color: var(--primary); }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; z-index: 150; }
         .overlay.active { display: block; }
-        .container { padding: 20px; max-width: 600px; margin: 0 auto; }
-        .card { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .container { padding: 20px; max-width: 900px; margin: 0 auto; }
+        .card { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .stat-box { background: var(--primary); color: white; padding: 15px; border-radius: 12px; text-align: center; }
+        .stat-box.alt { background: var(--success); }
+        .stat-box h2 { margin: 5px 0; font-size: 1.4rem; }
         label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: #64748b; }
-        input, select, button { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
-        button { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: background 0.3s ease; }
-        button:hover { filter: brightness(1.1); }
-        button:active { transform: translateY(1px); } /* Efeito de click */
-        .btn-venda { background: var(--success); }
-        .btn-danger { background: var(--danger); padding: 8px; font-size: 14px; width: auto; color: white; border-radius: 5px; }
-        .cli-box { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
-        .cli-info b { display: block; font-size: 1.1rem; color: var(--primary); }
-        .cli-info span { display: block; font-size: 0.85rem; color: #64748b; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 12px 5px; border-bottom: 1px solid #eee; }
+        input, select, button { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 16px; box-sizing: border-box; }
+        button { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:active { transform: scale(0.98); }
+        .btn-pdf { background: #64748b; margin-top: 5px; height: 35px; padding: 0 10px; font-size: 14px; width: auto; }
         .hidden { display: none; }
-        .item-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 0.95rem; }
-        .item-row:last-child { border-bottom: none; }
-        
-        /* --- Novas Estilos para Animações --- */
-        #feedback-message {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 15px 25px;
-            border-radius: 8px;
-            color: white;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
-            display: flex;
-            align-items: center;
-        }
-        #feedback-message.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-        #feedback-message.success { background-color: var(--success); }
-        #feedback-message.error { background-color: var(--danger); }
-        #feedback-message.info { background-color: var(--primary); }
-        #feedback-message .icon { font-size: 1.5rem; margin-right: 10px; }
-
-        /* Estilo para tela de carregamento */
-        .loading-screen {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255, 255, 255, 0.9);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
-        }
-        .loading-screen.show {
-            opacity: 1;
-            visibility: visible;
-        }
-        .spinner {
-            border: 6px solid #f3f3f3;
-            border-top: 6px solid var(--primary);
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .loading-text { margin-top: 15px; color: var(--primary); font-weight: bold; font-size: 1.1rem; }
-
+        .venda-card, .estoque-item { border-left: 5px solid var(--success); padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .estoque-item { border-left-color: var(--primary); }
+        canvas { max-width: 100%; height: 300px !important; }
     </style>
 </head>
 <body>
 
 <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
 <div class="sidebar" id="sidebar">
-    <div style="padding: 20px; font-size: 1.5rem; font-weight: bold; color: var(--primary);">PVC Cloud</div>
+    <div style="padding: 20px; color: var(--primary); font-size: 1.5rem; font-weight: bold;">Menu</div>
     <div class="sidebar-item" onclick="mudarTela('venda', '🛒 Nova Venda')">🛒 Nova Venda</div>
-    <div class="sidebar-item" onclick="mudarTela('estoque', '📦 Estoque / Produtos')">📦 Estoque / Produtos</div>
-    <div class="sidebar-item" onclick="mudarTela('clientes-cad', '🏪 Cadastrar Cliente')">🏪 Cadastrar Cliente</div>
-    <div class="sidebar-item" onclick="mudarTela('clientes-ver', '👥 Verificar Clientes')">👥 Verificar Clientes</div>
+    <div class="sidebar-item" onclick="mudarTela('historico', '📋 Relatórios')">📋 Relatórios e Vendas</div>
+    <div class="sidebar-item" onclick="mudarTela('estoque', '📦 Estoque')">📦 Estoque</div>
+    <div class="sidebar-item" onclick="mudarTela('clientes-cad', '🏪 Cadastro de Clientes')">🏪 Cadastro de Clientes</div>
 </div>
 
 <header>
@@ -109,73 +53,64 @@
 </header>
 
 <div class="container">
+    <div id="tela-historico" class="content-section hidden">
+        <div class="stats-grid">
+            <div class="stat-box"><span>Total no Período</span><h2 id="faturamento-total">R$ 0,00</h2></div>
+            <div class="stat-box alt"><span>Vendas Realizadas</span><h2 id="qtd-vendas">0</h2></div>
+        </div>
+        <div class="card"><h3>Faturamento por Dia</h3><canvas id="graficoVendas"></canvas></div>
+        <div class="card"><h3>Histórico de Pedidos</h3><div id="lista-vendas"></div></div>
+    </div>
+
     <div id="tela-venda" class="content-section">
         <div class="card">
-            <label>Cliente:</label>
-            <select id="sel-cliente"></select>
-            <label>Cano / Material:</label>
-            <select id="sel-produto"></select>
-            <label>Quantidade:</label>
-            <input type="number" id="venda-qtd" value="1">
-            <button style="background: #6366f1;" onclick="addItem()">+ Adicionar Item</button>
+            <label>Cliente:</label><select id="sel-cliente"></select>
+            <label>Produto:</label><select id="sel-produto"></select>
+            <label>Quantidade:</label><input type="number" id="venda-qtd" value="1">
+            <button onclick="addItem()">+ Adicionar ao Carrinho</button>
         </div>
         <div class="card">
-            <h3>Carrinho</h3>
+            <h3>Itens do Pedido</h3>
             <div id="carrinho-lista"></div>
-            <h2 id="venda-total">Total: R$ 0,00</h2>
-            <button class="btn-venda" onclick="finalizarVenda()">Finalizar Venda</button>
+            <h2 id="total-carrinho" style="color: var(--primary)">Total: R$ 0,00</h2>
+            <button style="background: var(--success); font-size: 1.1rem; height: 55px;" onclick="finalizarVenda()">Finalizar e Gerar PDF</button>
         </div>
     </div>
 
     <div id="tela-estoque" class="content-section hidden">
         <div class="card">
-            <h3>Novo Produto</h3>
-            <input type="text" id="p-nome" placeholder="Ex: Cano 100mm Esgoto">
+            <h3 id="titulo-form-estoque">Novo Produto</h3>
+            <input type="hidden" id="p-id" value=""> <input type="text" id="p-nome" placeholder="Nome do Cano">
             <input type="number" id="p-preco" placeholder="Preço Unitário">
-            <input type="number" id="p-qtd" placeholder="Qtd no Caminhão">
-            <button onclick="salvarProduto()">Salvar na Nuvem</button>
+            <input type="number" id="p-qtd" placeholder="Quantidade">
+            <div style="display: flex; gap: 10px;">
+                <button onclick="salvarProduto()" id="btn-estoque-principal">Salvar</button>
+                <button id="btn-cancelar-edit" class="hidden" style="background: #64748b;" onclick="cancelarEdicao()">Cancelar</button>
+            </div>
         </div>
         <div class="card">
-            <table>
-                <thead><tr><th>Nome</th><th>Preço</th><th>Qtd</th></tr></thead>
-                <tbody id="lista-estoque"></tbody>
-            </table>
+            <h3>Lista de Produtos</h3>
+            <div id="lista-estoque-admin"></div>
         </div>
     </div>
 
     <div id="tela-clientes-cad" class="content-section hidden">
         <div class="card">
-            <h3>Dados do Cliente</h3>
+            <h3>Cadastro de Clientes</h3>
             <input type="text" id="c-nome" placeholder="Nome do Depósito">
-            <input type="tel" id="c-tel" placeholder="Celular (00) 00000-0000">
+            <input type="tel" id="c-tel" placeholder="WhatsApp">
             <input type="text" id="c-end" placeholder="Endereço">
-            <input type="text" id="c-cnpj" placeholder="CNPJ (Opcional)">
-            <button onclick="salvarCliente()">Cadastrar na Nuvem</button>
-        </div>
-    </div>
-
-    <div id="tela-clientes-ver" class="content-section hidden">
-        <div class="card">
-            <h3>Lista de Clientes</h3>
-            <div id="lista-clientes-listagem">Carregando...</div>
+            <input type="text" id="c-cnpj" placeholder="CNPJ">
+            <button onclick="salvarCliente()">Cadastrar Cliente</button>
         </div>
     </div>
 </div>
-
-<div id="feedback-message" class="hidden"><span class="icon"></span> <span id="feedback-text"></span></div>
-
-<div id="loading-screen" class="loading-screen">
-    <div class="spinner"></div>
-    <div class="loading-text">Carregando...</div>
-</div>
-
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot } 
+    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot } 
     from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // SEU firebaseConfig AQUI:
     const firebaseConfig = {
         apiKey: "AIzaSyCx4hnaqKk3VMNIsm3iPTBx1uwtN8Dr54E",
         authDomain: "vendaspvc-f0473.firebaseapp.com",
@@ -187,60 +122,9 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    let produtos = []; let clientes = []; let carrinho = []; let meuGrafico = null;
 
-    let db_produtos = [];
-    let db_clientes = [];
-    let carrinho = [];
-
-    // --- FUNÇÕES DE FEEDBACK E CARREGAMENTO ---
-    function showFeedback(message, type = 'info', icon = '') {
-        const feedbackDiv = document.getElementById('feedback-message');
-        const feedbackText = document.getElementById('feedback-text');
-        const feedbackIcon = feedbackDiv.querySelector('.icon');
-
-        feedbackText.innerText = message;
-        feedbackIcon.innerText = icon; // Pode ser um emoji como '✅', '❌', 'ℹ️'
-
-        feedbackDiv.className = ''; // Limpa classes anteriores
-        feedbackDiv.classList.add(type, 'show');
-
-        setTimeout(() => {
-            feedbackDiv.classList.remove('show');
-        }, 3000); // Some após 3 segundos
-    }
-
-    function showLoading() {
-        document.getElementById('loading-screen').classList.add('show');
-    }
-
-    function hideLoading() {
-        document.getElementById('loading-screen').classList.remove('show');
-    }
-
-    // --- SINCRONIZAÇÃO EM TEMPO REAL ---
-    onSnapshot(collection(db, "produtos"), (snapshot) => {
-        db_produtos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderEstoque();
-        atualizarSelects();
-        hideLoading(); // Esconde o loading depois de carregar os dados
-    }, (error) => {
-        console.error("Erro ao carregar produtos:", error);
-        showFeedback("Erro ao carregar produtos!", 'error', '❌');
-        hideLoading();
-    });
-
-    onSnapshot(collection(db, "clientes"), (snapshot) => {
-        db_clientes = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderClientes();
-        atualizarSelects();
-        hideLoading(); // Esconde o loading depois de carregar os dados
-    }, (error) => {
-        console.error("Erro ao carregar clientes:", error);
-        showFeedback("Erro ao carregar clientes!", 'error', '❌');
-        hideLoading();
-    });
-
-    // --- FUNÇÕES GLOBAIS ---
+    // --- FUNÇÕES DE NAVEGAÇÃO ---
     window.toggleMenu = () => {
         document.getElementById('sidebar').classList.toggle('active');
         document.getElementById('overlay').classList.toggle('active');
@@ -248,184 +132,235 @@
 
     window.mudarTela = (tela, titulo) => {
         document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden'));
-        document.getElementById('tela-' + tela).classList.remove('hidden');
+        document.getElementById('tela-'+tela).classList.remove('hidden');
         document.getElementById('titulo-pagina').innerText = titulo;
         if(document.getElementById('sidebar').classList.contains('active')) toggleMenu();
-        // Opcional: mostrar loading ao mudar de tela se a renderização for complexa
-        // showLoading(); 
-        // setTimeout(hideLoading, 500); // Esconde depois de um pequeno tempo
+        if(tela === 'historico') carregarDadosRelatorio();
     };
 
+    // --- SINCRONIZAÇÃO EM TEMPO REAL ---
+    onSnapshot(collection(db, "produtos"), s => {
+        produtos = s.docs.map(d => ({id: d.id, ...d.data()}));
+        atualizarSelects();
+        renderEstoqueAdmin();
+    });
+
+    onSnapshot(collection(db, "clientes"), s => {
+        clientes = s.docs.map(d => ({id: d.id, ...d.data()}));
+        atualizarSelects();
+    });
+
+    function atualizarSelects() {
+        document.getElementById('sel-cliente').innerHTML = clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+        document.getElementById('sel-produto').innerHTML = produtos.map(p => `<option value="${p.id}">${p.nome} (Est: ${p.qtd})</option>`).join('');
+    }
+
+    // --- GERENCIAMENTO DE ESTOQUE (SALVAR / EDITAR / EXCLUIR) ---
     window.salvarProduto = async () => {
-        showLoading();
+        const id = document.getElementById('p-id').value;
         const nome = document.getElementById('p-nome').value;
         const preco = parseFloat(document.getElementById('p-preco').value);
         const qtd = parseInt(document.getElementById('p-qtd').value);
-        if(!nome || isNaN(preco) || isNaN(qtd)) {
-            hideLoading();
-            return showFeedback("Preencha todos os campos corretamente!", 'error', '⚠️');
-        }
+
+        if(!nome || isNaN(preco) || isNaN(qtd)) return alert("Preencha todos os campos!");
+
         try {
-            await addDoc(collection(db, "produtos"), { nome, preco, qtd });
-            document.getElementById('p-nome').value = ''; 
-            document.getElementById('p-preco').value = ''; 
-            document.getElementById('p-qtd').value = '';
-            showFeedback("Produto salvo na nuvem!", 'success', '✅');
-        } catch (e) {
-            console.error("Erro ao salvar produto: ", e);
-            showFeedback("Erro ao salvar produto!", 'error', '❌');
-        } finally {
-            hideLoading();
+            if(id && id !== "") {
+                // MODO EDIÇÃO
+                const pRef = doc(db, "produtos", id);
+                await updateDoc(pRef, { nome, preco, qtd });
+                alert("Produto atualizado com sucesso!");
+            } else {
+                // MODO NOVO
+                await addDoc(collection(db, "produtos"), { nome, preco, qtd });
+                alert("Produto cadastrado com sucesso!");
+            }
+            cancelarEdicao(); // Limpa o form
+        } catch(e) {
+            console.error("Erro ao salvar:", e);
+            alert("Erro ao salvar no banco de dados.");
         }
     };
 
+    window.prepararEdicao = (id, nome, preco, qtd) => {
+        document.getElementById('p-id').value = id;
+        document.getElementById('p-nome').value = nome;
+        document.getElementById('p-preco').value = preco;
+        document.getElementById('p-qtd').value = qtd;
+        
+        document.getElementById('titulo-form-estoque').innerText = "Editando Produto";
+        document.getElementById('btn-cancelar-edit').classList.remove('hidden');
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    };
+
+    window.cancelarEdicao = () => {
+        document.getElementById('p-id').value = "";
+        document.getElementById('p-nome').value = "";
+        document.getElementById('p-preco').value = "";
+        document.getElementById('p-qtd').value = "";
+        document.getElementById('titulo-form-estoque').innerText = "Novo Produto";
+        document.getElementById('btn-cancelar-edit').classList.add('hidden');
+    };
+
+    window.excluirProduto = async (id) => {
+        if(confirm("Deseja excluir este item permanentemente?")) {
+            try {
+                await deleteDoc(doc(db, "produtos", id));
+            } catch(e) { alert("Erro ao excluir."); }
+        }
+    };
+
+    function renderEstoqueAdmin() {
+        const container = document.getElementById('lista-estoque-admin');
+        container.innerHTML = produtos.map(p => `
+            <div class="estoque-item">
+                <div>
+                    <strong>${p.nome}</strong><br>
+                    <small>R$ ${p.preco.toFixed(2)} | Qtd: ${p.qtd}</small>
+                </div>
+                <div style="display:flex; gap:5px;">
+                    <button onclick="prepararEdicao('${p.id}', '${p.nome}', ${p.preco}, ${p.qtd})" style="background:var(--warning); width:60px; height:35px; font-size:12px; padding:0;">Editar</button>
+                    <button onclick="excluirProduto('${p.id}')" style="background:var(--danger); width:60px; height:35px; font-size:12px; padding:0;">Excluir</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // --- LÓGICA DE VENDA ---
+    window.addItem = () => {
+        const pId = document.getElementById('sel-produto').value;
+        const qtd = parseInt(document.getElementById('venda-qtd').value);
+        const p = produtos.find(item => item.id === pId);
+        if(!p || p.qtd < qtd) return alert("Estoque insuficiente!");
+        carrinho.push({...p, qtdVenda: qtd});
+        renderCarrinho();
+    };
+
+    window.removerItemCarrinho = (index) => {
+        carrinho.splice(index, 1);
+        renderCarrinho();
+    };
+
+    function renderCarrinho() {
+        let total = 0;
+        document.getElementById('carrinho-lista').innerHTML = carrinho.map((i, index) => {
+            total += (i.preco * i.qtdVenda);
+            return `<div style="padding:10px; border-bottom:1px dashed #ccc; display:flex; justify-content:space-between; align-items:center;">
+                <span>${i.nome} (x${i.qtdVenda})</span>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <b>R$ ${(i.preco * i.qtdVenda).toFixed(2)}</b>
+                    <button onclick="removerItemCarrinho(${index})" style="background:var(--danger); width:30px; height:30px; border-radius:50%; padding:0;">✕</button>
+                </div>
+            </div>`;
+        }).join('');
+        document.getElementById('total-carrinho').innerText = `Total: R$ ${total.toFixed(2)}`;
+    }
+
+    window.finalizarVenda = async () => {
+        if(carrinho.length === 0) return alert("Carrinho vazio!");
+        const cliente = clientes.find(c => c.id === document.getElementById('sel-cliente').value);
+        const vendaData = {
+            clienteNome: cliente.nome,
+            clienteTel: cliente.tel || '',
+            clienteEndereco: cliente.end || '',
+            clienteCnpj: cliente.cnpj || '',
+            itens: carrinho.map(i => ({nome: i.nome, qtdVenda: i.qtdVenda, preco: i.preco})),
+            total: carrinho.reduce((a, b) => a + (b.preco * b.qtdVenda), 0),
+            data: new Date()
+        };
+
+        try {
+            await addDoc(collection(db, "vendas"), vendaData);
+            for(let item of carrinho) {
+                await updateDoc(doc(db, "produtos", item.id), { qtd: item.qtd - item.qtdVenda });
+            }
+            gerarPDF(vendaData);
+            carrinho = []; renderCarrinho();
+            alert("Venda Finalizada!");
+        } catch(e) { console.error(e); }
+    };
+
+    // --- PDF E RELATÓRIOS ---
+    window.gerarPDF = (dados) => {
+    const { jsPDF } = window.jspdf;
+    const docPDF = new jsPDF();
+    
+    // Título Principal
+    docPDF.setFontSize(20);
+    docPDF.setTextColor(37, 99, 235); // Azul primário
+    docPDF.text("NOTA DE VENDA FORTE TUBOS", 105, 18, {align:'center'});
+    
+    // Subtítulo (Vendedor) - Tamanho 14 como solicitado
+    docPDF.setFontSize(14);
+    docPDF.setTextColor(100, 116, 139); // Cinza profissional
+    docPDF.text("Vendedor: Bergson / WhatsApp: 85981184663", 105, 28, {align:'center'});
+    
+    // Linha divisória simples
+    docPDF.setDrawColor(200, 200, 200);
+    docPDF.line(15, 32, 195, 32);
+
+    // Dados do Cliente e Data
+    docPDF.setFontSize(11);
+    docPDF.setTextColor(0, 0, 0); // Preto
+    docPDF.text(`CLIENTE: ${dados.clienteNome}`, 15, 42);
+    
+    if(dados.clienteCnpj) {
+        docPDF.text(`CNPJ: ${dados.clienteCnpj}`, 15, 49);
+    }
+    
+    // Tratamento da data para evitar erro se vier do Firebase ou do sistema
+    const dataFormatada = dados.data instanceof Date ? dados.data.toLocaleString() : dados.data.toDate().toLocaleString();
+    docPDF.text(`DATA: ${dataFormatada}`, 140, 42);
+    
+    // Tabela de Itens (Ajustado o startY para começar após os textos)
+    docPDF.autoTable({
+        startY: 55,
+        head: [['Produto', 'Qtd', 'Preço Unit.', 'Subtotal']],
+        body: dados.itens.map(i => [
+            i.nome, 
+            i.qtdVenda, 
+            `R$ ${i.preco.toFixed(2)}`, 
+            `R$ ${(i.preco * i.qtdVenda).toFixed(2)}`
+        ]),
+        headStyles: { fillColor: [37, 99, 235] },
+        styles: { fontSize: 10 },
+        theme: 'grid'
+    });
+    
+    // Valor Total
+    const finalY = docPDF.lastAutoTable.finalY;
+    docPDF.setFontSize(14);
+    docPDF.setFont(undefined, 'bold');
+    docPDF.text(`VALOR TOTAL: R$ ${dados.total.toFixed(2)}`, 140, finalY + 15);
+    
+    docPDF.save(`Nota_${dados.clienteNome}.pdf`);
+};
+
+    async function carregarDadosRelatorio() {
+        const q = query(collection(db, "vendas"), orderBy("data", "desc"));
+        const snap = await getDocs(q);
+        const vendas = snap.docs.map(d => ({id: d.id, ...d.data()}));
+        let total = 0;
+        vendas.forEach(v => total += v.total);
+        document.getElementById('faturamento-total').innerText = `R$ ${total.toFixed(2)}`;
+        document.getElementById('qtd-vendas').innerText = vendas.length;
+        document.getElementById('lista-vendas').innerHTML = vendas.map(v => `
+            <div class="venda-card">
+                <div><b>${v.clienteNome}</b><br><small>${v.data.toDate().toLocaleString()}</small></div>
+                <b>R$ ${v.total.toFixed(2)}</b>
+            </div>
+        `).join('');
+    }
+
     window.salvarCliente = async () => {
-        showLoading();
         const nome = document.getElementById('c-nome').value;
         const tel = document.getElementById('c-tel').value;
         const end = document.getElementById('c-end').value;
         const cnpj = document.getElementById('c-cnpj').value;
-        if(!nome || !tel) {
-            hideLoading();
-            return showFeedback("Nome e Celular são obrigatórios!", 'error', '⚠️');
-        }
-        try {
-            await addDoc(collection(db, "clientes"), { nome, tel, end, cnpj });
-            document.getElementById('c-nome').value = '';
-            document.getElementById('c-tel').value = '';
-            document.getElementById('c-end').value = '';
-            document.getElementById('c-cnpj').value = '';
-            showFeedback("Cliente cadastrado com sucesso!", 'success', '✅');
-            mudarTela('clientes-ver', '👥 Verificar Clientes');
-        } catch (e) {
-            console.error("Erro ao salvar cliente: ", e);
-            showFeedback("Erro ao salvar cliente!", 'error', '❌');
-        } finally {
-            hideLoading();
-        }
+        if(!nome) return alert("Nome obrigatório!");
+        await addDoc(collection(db, "clientes"), { nome, tel, end, cnpj });
+        alert("Cliente salvo!");
     };
-
-    window.excluirCliente = async (id) => {
-        if(confirm("Tem certeza que deseja excluir este cliente permanentemente?")) {
-            showLoading();
-            try {
-                await deleteDoc(doc(db, "clientes", id));
-                showFeedback("Cliente excluído!", 'success', '🗑️');
-            } catch (e) {
-                console.error("Erro ao excluir cliente: ", e);
-                showFeedback("Erro ao excluir cliente!", 'error', '❌');
-            } finally {
-                hideLoading();
-            }
-        }
-    };
-
-    window.addItem = () => {
-        const pId = document.getElementById('sel-produto').value;
-        const qtd = parseInt(document.getElementById('venda-qtd').value);
-        const p = db_produtos.find(prod => prod.id == pId);
-
-        if(!pId || isNaN(qtd) || qtd <= 0) {
-            return showFeedback("Selecione um produto e uma quantidade válida.", 'error', '⚠️');
-        }
-        if(!p) {
-            return showFeedback("Produto não encontrado no estoque.", 'error', '❌');
-        }
-        if(p.qtd < qtd) {
-            return showFeedback("Estoque insuficiente para esta quantidade!", 'error', '⚠️');
-        }
-        
-        // Verifica se o item já está no carrinho
-        const itemExistente = carrinho.find(item => item.id === p.id);
-        if (itemExistente) {
-            itemExistente.qtdVenda += qtd;
-        } else {
-            carrinho.push({ ...p, qtdVenda: qtd });
-        }
-        showFeedback(`${qtd}x ${p.nome} adicionado ao carrinho!`, 'info', '🛒');
-        document.getElementById('venda-qtd').value = 1; // Reseta a quantidade
-        renderCarrinho();
-    };
-
-    window.finalizarVenda = async () => {
-        if(carrinho.length === 0) {
-            return showFeedback("O carrinho está vazio!", 'error', '⚠️');
-        }
-        showLoading();
-        try {
-            for(let item of carrinho) {
-                const pRef = doc(db, "produtos", item.id);
-                await updateDoc(pRef, { qtd: item.qtd - item.qtdVenda });
-            }
-            // Registrar a venda em uma nova coleção "vendas" (opcional, mas bom para relatórios)
-            await addDoc(collection(db, "vendas"), {
-                clienteId: document.getElementById('sel-cliente').value,
-                itens: carrinho.map(item => ({
-                    produtoId: item.id,
-                    nome: item.nome,
-                    precoUnitario: item.preco,
-                    quantidadeVendida: item.qtdVenda
-                })),
-                total: carrinho.reduce((sum, item) => sum + (item.preco * item.qtdVenda), 0),
-                dataVenda: new Date()
-            });
-
-            showFeedback("Venda Finalizada! Estoque atualizado na nuvem.", 'success', '🎉');
-            carrinho = [];
-            renderCarrinho();
-        } catch (e) {
-            console.error("Erro ao finalizar venda: ", e);
-            showFeedback("Erro ao finalizar venda!", 'error', '❌');
-        } finally {
-            hideLoading();
-        }
-    };
-
-    // --- RENDERIZAÇÃO ---
-    function renderEstoque() {
-        document.getElementById('lista-estoque').innerHTML = db_produtos.map(p => `<tr><td>${p.nome}</td><td>R$ ${p.preco.toFixed(2)}</td><td>${p.qtd}</td></tr>`).join('');
-    }
-
-    function renderClientes() {
-        const listaClientesDiv = document.getElementById('lista-clientes-listagem');
-        if (db_clientes.length === 0) {
-            listaClientesDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #64748b;">Nenhum cliente cadastrado ainda.</div>';
-            return;
-        }
-        listaClientesDiv.innerHTML = db_clientes.map(c => `
-            <div class="cli-box">
-                <div class="cli-info"><b>${c.nome}</b><span>📞 ${c.tel}</span><span>📍 ${c.end}</span></div>
-                <button class="btn-danger" onclick="excluirCliente('${c.id}')">Excluir</button>
-            </div>`).join('');
-    }
-
-    function atualizarSelects() {
-        document.getElementById('sel-cliente').innerHTML = db_clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
-        document.getElementById('sel-produto').innerHTML = db_produtos.map(p => `<option value="${p.id}">${p.nome} (Esq: ${p.qtd})</option>`).join('');
-    }
-
-    function renderCarrinho() {
-        let total = 0;
-        const carrinhoListaDiv = document.getElementById('carrinho-lista');
-        if (carrinho.length === 0) {
-            carrinhoListaDiv.innerHTML = '<div style="text-align: center; padding: 10px; color: #64748b; font-style: italic;">Carrinho vazio.</div>';
-            document.getElementById('venda-total').innerText = `Total: R$ 0,00`;
-            return;
-        }
-        carrinhoListaDiv.innerHTML = carrinho.map(i => {
-            total += (i.preco * i.qtdVenda);
-            return `<div class="item-row"><span>${i.nome} (x${i.qtdVenda})</span><b>R$ ${(i.preco * i.qtdVenda).toFixed(2)}</b></div>`;
-        }).join('');
-        document.getElementById('venda-total').innerText = `Total: R$ ${total.toFixed(2)}`;
-    }
-
-    // Inicializa o carregamento dos dados na primeira vez
-    showLoading(); 
-    document.addEventListener('DOMContentLoaded', () => {
-        // Renderiza o carrinho e clientes vazios no início para evitar tela em branco
-        renderCarrinho();
-        renderClientes();
-    });
 </script>
 </body>
 </html>
