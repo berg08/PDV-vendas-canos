@@ -34,6 +34,30 @@
         .venda-card, .estoque-item { border-left: 5px solid var(--success); padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .estoque-item { border-left-color: var(--primary); }
         canvas { max-width: 100%; height: 300px !important; }
+        
+    .cliente-item { 
+    border-left: 5px solid var(--primary); /* Borda azul igual à imagem */
+    padding: 15px; 
+    margin-bottom: 12px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    background: white; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+}
+
+.cliente-info strong {
+    font-size: 1.1rem;
+    color: var(--text);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.cliente-info small {
+    color: #64748b;
+    font-size: 0.9rem;
+}
     </style>
 </head>
 <body>
@@ -95,14 +119,20 @@
     </div>
 
     <div id="tela-clientes-cad" class="content-section hidden">
-        <div class="card">
-            <h3>Cadastro de Clientes</h3>
-            <input type="text" id="c-nome" placeholder="Nome do Depósito">
-            <input type="tel" id="c-tel" placeholder="WhatsApp">
-            <input type="text" id="c-end" placeholder="Endereço">
-            <input type="text" id="c-cnpj" placeholder="CNPJ">
-            <button onclick="salvarCliente()">Cadastrar Cliente</button>
+    <div class="card">
+        <h3 id="titulo-form-cliente">Cadastro de Clientes</h3>
+        <input type="hidden" id="c-id" value=""> <input type="text" id="c-nome" placeholder="Nome do Depósito">
+        <input type="tel" id="c-tel" placeholder="WhatsApp">
+        <input type="text" id="c-end" placeholder="Endereço">
+        <input type="text" id="c-cnpj" placeholder="CNPJ">
+        <div style="display: flex; gap: 10px;">
+            <button onclick="salvarCliente()" id="btn-cliente-principal">Salvar Cliente</button>
+            <button id="btn-cancelar-cliente" class="hidden" style="background: #64748b;" onclick="cancelarEdicaoCliente()">Cancelar</button>
         </div>
+    </div>
+    <div class="card">
+        <h3>Clientes Cadastrados</h3>
+        <div id="lista-clientes-admin"></div>
     </div>
 </div>
 
@@ -123,6 +153,89 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     let produtos = []; let clientes = []; let carrinho = []; let meuGrafico = null;
+
+    // --- SINCRONIZAÇÃO DA LISTA DE CLIENTES ---
+onSnapshot(collection(db, "clientes"), s => {
+    clientes = s.docs.map(d => ({id: d.id, ...d.data()}));
+    atualizarSelects();
+    renderClientesAdmin(); // Nova função para atualizar a lista visual
+});
+
+function renderClientesAdmin() {
+    const container = document.getElementById('lista-clientes-admin');
+    if (!container) return;
+
+    container.innerHTML = clientes.map(c => `
+        <div class="cliente-item">
+            <div class="cliente-info">
+                <strong>${c.nome}</strong>
+                <small>WhatsApp: ${c.tel || 'N/A'} | CNPJ: ${c.cnpj || 'N/A'}</small>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button onclick="prepararEdicaoCliente('${c.id}', '${c.nome}', '${c.tel}', '${c.end}', '${c.cnpj}')" 
+                        style="background:var(--warning); width:80px; height:40px; border-radius:8px; margin:0; font-size:14px;">
+                    Editar
+                </button>
+                <button onclick="excluirCliente('${c.id}')" 
+                        style="background:var(--danger); width:80px; height:40px; border-radius:8px; margin:0; font-size:14px;">
+                    Excluir
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// --- SALVAR / EDITAR CLIENTE ---
+window.salvarCliente = async () => {
+    const id = document.getElementById('c-id').value;
+    const nome = document.getElementById('c-nome').value;
+    const tel = document.getElementById('c-tel').value;
+    const end = document.getElementById('c-end').value;
+    const cnpj = document.getElementById('c-cnpj').value;
+
+    if(!nome) return alert("O nome do cliente é obrigatório!");
+
+    try {
+        if(id) {
+            await updateDoc(doc(db, "clientes", id), { nome, tel, end, cnpj });
+            alert("Cliente atualizado!");
+        } else {
+            await addDoc(collection(db, "clientes"), { nome, tel, end, cnpj });
+            alert("Cliente cadastrado!");
+        }
+        cancelarEdicaoCliente();
+    } catch(e) { alert("Erro ao salvar cliente."); }
+};
+
+window.prepararEdicaoCliente = (id, nome, tel, end, cnpj) => {
+    document.getElementById('c-id').value = id;
+    document.getElementById('c-nome').value = nome;
+    document.getElementById('c-tel').value = tel === 'undefined' ? '' : tel;
+    document.getElementById('c-end').value = end === 'undefined' ? '' : end;
+    document.getElementById('c-cnpj').value = cnpj === 'undefined' ? '' : cnpj;
+    
+    document.getElementById('titulo-form-cliente').innerText = "Editando Cliente";
+    document.getElementById('btn-cancelar-cliente').classList.remove('hidden');
+    window.scrollTo({top: 0, behavior: 'smooth'});
+};
+
+window.cancelarEdicaoCliente = () => {
+    document.getElementById('c-id').value = "";
+    document.getElementById('c-nome').value = "";
+    document.getElementById('c-tel').value = "";
+    document.getElementById('c-end').value = "";
+    document.getElementById('c-cnpj').value = "";
+    document.getElementById('titulo-form-cliente').innerText = "Cadastro de Clientes";
+    document.getElementById('btn-cancelar-cliente').classList.add('hidden');
+};
+
+window.excluirCliente = async (id) => {
+    if(confirm("Deseja excluir este cliente?")) {
+        try {
+            await deleteDoc(doc(db, "clientes", id));
+        } catch(e) { alert("Erro ao excluir."); }
+    }
+};
 
     // --- FUNÇÕES DE NAVEGAÇÃO ---
     window.toggleMenu = () => {
