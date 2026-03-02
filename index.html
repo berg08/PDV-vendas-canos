@@ -82,6 +82,10 @@
             <div class="stat-box"><span>Total no Período</span><h2 id="faturamento-total">R$ 0,00</h2></div>
             <div class="stat-box alt"><span>Vendas Realizadas</span><h2 id="qtd-vendas">0</h2></div>
         </div>
+    <button onclick="reiniciarRota()" 
+     style="background:var(--danger); margin-bottom:15px;">
+    🔄 Reiniciar Rota
+</button>
         <div class="card"><h3>Faturamento por Dia</h3><canvas id="graficoVendas"></canvas></div>
         <div class="card"><h3>Histórico de Pedidos</h3><div id="lista-vendas"></div></div>
     </div>
@@ -450,20 +454,58 @@ window.excluirCliente = async (id) => {
 };
 
     async function carregarDadosRelatorio() {
-        const q = query(collection(db, "vendas"), orderBy("data", "desc"));
-        const snap = await getDocs(q);
-        const vendas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-        let total = 0;
-        vendas.forEach(v => total += v.total);
-        document.getElementById('faturamento-total').innerText = `R$ ${total.toFixed(2)}`;
-        document.getElementById('qtd-vendas').innerText = vendas.length;
-        document.getElementById('lista-vendas').innerHTML = vendas.map(v => `
-            <div class="venda-card">
-                <div><b>${v.clienteNome}</b><br><small>${v.data.toDate().toLocaleString()}</small></div>
-                <b>R$ ${v.total.toFixed(2)}</b>
-            </div>
-        `).join('');
+
+    const inicioRotaSalvo = localStorage.getItem("inicioRota");
+    const dataInicio = inicioRotaSalvo ? new Date(inicioRotaSalvo) : null;
+
+    const q = query(collection(db, "vendas"), orderBy("data", "desc"));
+    const snap = await getDocs(q);
+
+    const vendas = snap.docs.map(d => {
+        const dados = d.data();
+
+        // Corrige o campo data (Timestamp ou Date)
+        let dataConvertida;
+        if (dados.data?.toDate) {
+            dataConvertida = dados.data.toDate();
+        } else {
+            dataConvertida = new Date(dados.data);
+        }
+
+        return { id: d.id, ...dados, dataConvertida };
+    });
+
+    // Filtra somente para cálculo do período
+    let vendasFiltradas = vendas;
+
+    if (dataInicio) {
+        vendasFiltradas = vendas.filter(v => v.dataConvertida >= dataInicio);
     }
+
+    // Calcula total do período
+    let total = 0;
+    vendasFiltradas.forEach(v => total += v.total);
+
+    document.getElementById('faturamento-total').innerText =
+        `R$ ${total.toFixed(2)}`;
+
+    document.getElementById('qtd-vendas').innerText =
+        vendasFiltradas.length;
+
+    // Histórico mostra TODAS as vendas
+    document.getElementById('lista-vendas').innerHTML = vendas.map(v => `
+        <div class="venda-card">
+            <div>
+                <b>${v.clienteNome}</b><br>
+                <small>${v.dataConvertida.toLocaleString()}</small><br>
+                <small>
+                    ${v.itens.map(i => `${i.nome} (x${i.qtdVenda})`).join(', ')}
+                </small>
+            </div>
+            <b>R$ ${v.total.toFixed(2)}</b>
+        </div>
+    `).join('');
+}
 
     window.salvarCliente = async () => {
         const nome = document.getElementById('c-nome').value;
@@ -474,6 +516,26 @@ window.excluirCliente = async (id) => {
         await addDoc(collection(db, "clientes"), { nome, tel, end, cnpj });
         alert("Cliente salvo!");
     };
+
+    window.excluirVenda = async (id) => {
+    if(confirm("Deseja excluir esta venda?")) {
+        try {
+            await deleteDoc(doc(db, "vendas", id));
+            alert("Venda excluída!");
+            carregarDadosRelatorio();
+        } catch(e) {
+            alert("Erro ao excluir venda.");
+        }
+    }
+};
+
+window.reiniciarRota = () => {
+    if (confirm("Deseja iniciar uma nova rota? O histórico não será apagado.")) {
+        localStorage.setItem("inicioRota", new Date().toISOString());
+        carregarDadosRelatorio();
+        alert("Nova rota iniciada!");
+    }
+};
 </script>
 </body>
 </html>
