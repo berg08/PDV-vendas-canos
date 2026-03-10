@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PVC Control Pro + Analytics</title>
+    <title>PDV Vendas tubos</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -58,6 +58,37 @@
     color: #64748b;
     font-size: 0.9rem;
 }
+
+/* Estilo para a tela de Perfil do Cliente */
+.historico-item {
+    border-left: 4px solid var(--primary);
+    background: #f8fafc;
+    padding: 15px;
+    margin-bottom: 12px;
+    border-radius: 0 8px 8px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.historico-data {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.historico-total {
+    font-size: 1.2rem;
+    color: var(--success);
+    font-weight: bold;
+}
+.historico-produtos {
+    font-size: 0.9rem;
+    color: #475569;
+    background: white;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
     </style>
 </head>
 <body>
@@ -67,8 +98,9 @@
     <div style="padding: 20px; color: var(--primary); font-size: 1.5rem; font-weight: bold;">Menu</div>
     <div class="sidebar-item" onclick="mudarTela('venda', '🛒 Nova Venda')">🛒 Nova Venda</div>
     <div class="sidebar-item" onclick="mudarTela('historico', '📋 Relatórios')">📋 Relatórios e Vendas</div>
-    <div class="sidebar-item" onclick="mudarTela('estoque', '📦 Estoque')">📦 Estoque</div>
-    <div class="sidebar-item" onclick="mudarTela('clientes-cad', '🏪 Cadastro de Clientes')">🏪 Cadastro de Clientes</div>
+    <div class="sidebar-item" onclick="mudarTela('estoque', '📦 Estoque')">📦 Produtos</div>
+    <div class="sidebar-item" onclick="mudarTela('clientes-cad', '🏪 Clientes')">🏪 Clientes</div>
+    <div class="sidebar-item" onclick="mudarTela('hist-cliente', '👤 Perfil do Cliente')">👤 Historico de compras por cliente</div>
 </div>
 
 <header>
@@ -140,11 +172,38 @@
     </div>
 </div>
 
+<div id="tela-hist-cliente" class="content-section hidden">
+        <div class="card">
+            <label>Selecione o Cliente para ver o histórico:</label>
+            <select id="sel-hist-cliente" onchange="buscarHistoricoCliente()"></select>
+        </div>
+        
+        <div class="stats-grid hidden" id="resumo-cliente">
+            <div class="stat-box"><span>Total Comprado</span><h2 id="hist-total-gasto">R$ 0,00</h2></div>
+            <div class="stat-box alt"><span>Qtd. de Pedidos</span><h2 id="hist-total-pedidos">0</h2></div>
+        </div>
+
+        <div class="card hidden" id="card-lista-hist-cliente">
+            <h3>Pedidos Anteriores</h3>
+            <div id="lista-hist-cliente"></div>
+        </div>
+    </div>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot } 
-    from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
+import { 
+    getFirestore, 
+    collection, 
+    addDoc, 
+    getDocs, 
+    doc, 
+    updateDoc, 
+    deleteDoc, 
+    query, 
+    orderBy, 
+    onSnapshot, 
+    where // <--- ADICIONEI ESTA PALAVRA AQUI
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
     const firebaseConfig = {
         apiKey: "AIzaSyCx4hnaqKk3VMNIsm3iPTBx1uwtN8Dr54E",
         authDomain: "vendaspvc-f0473.firebaseapp.com",
@@ -268,9 +327,15 @@ window.excluirCliente = async (id) => {
     });
 
     function atualizarSelects() {
-        document.getElementById('sel-cliente').innerHTML = clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
-        document.getElementById('sel-produto').innerHTML = produtos.map(p => `<option value="${p.id}">${p.nome} (Est: ${p.qtd})</option>`).join('');
+    document.getElementById('sel-cliente').innerHTML = clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+    document.getElementById('sel-produto').innerHTML = produtos.map(p => `<option value="${p.id}">${p.nome} (Est: ${p.qtd})</option>`).join('');
+    
+    // NOVA LINHA:
+    const selHistCliente = document.getElementById('sel-hist-cliente');
+    if (selHistCliente) {
+        selHistCliente.innerHTML = `<option value="">-- Escolha um cliente --</option>` + clientes.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
     }
+}
 
     // --- GERENCIAMENTO DE ESTOQUE (SALVAR / EDITAR / EXCLUIR) ---
     window.salvarProduto = async () => {
@@ -454,58 +519,93 @@ window.excluirCliente = async (id) => {
 };
 
     async function carregarDadosRelatorio() {
-
     const inicioRotaSalvo = localStorage.getItem("inicioRota");
     const dataInicio = inicioRotaSalvo ? new Date(inicioRotaSalvo) : null;
 
+    // Busca as vendas do Firebase
     const q = query(collection(db, "vendas"), orderBy("data", "desc"));
     const snap = await getDocs(q);
 
     const vendas = snap.docs.map(d => {
         const dados = d.data();
-
-        // Corrige o campo data (Timestamp ou Date)
         let dataConvertida;
         if (dados.data?.toDate) {
             dataConvertida = dados.data.toDate();
         } else {
             dataConvertida = new Date(dados.data);
         }
-
         return { id: d.id, ...dados, dataConvertida };
     });
 
-    // Filtra somente para cálculo do período
+    // Filtra para o resumo do topo (Faturamento Total)
     let vendasFiltradas = vendas;
-
     if (dataInicio) {
         vendasFiltradas = vendas.filter(v => v.dataConvertida >= dataInicio);
     }
 
-    // Calcula total do período
-    let total = 0;
-    vendasFiltradas.forEach(v => total += v.total);
+    let totalPeriodo = 0;
+    vendasFiltradas.forEach(v => totalPeriodo += v.total);
 
-    document.getElementById('faturamento-total').innerText =
-        `R$ ${total.toFixed(2)}`;
+    document.getElementById('faturamento-total').innerText = `R$ ${totalPeriodo.toFixed(2)}`;
+    document.getElementById('qtd-vendas').innerText = vendasFiltradas.length;
 
-    document.getElementById('qtd-vendas').innerText =
-        vendasFiltradas.length;
+    // RENDERIZAÇÃO DO HISTÓRICO COM OS NOVOS BOTÕES
+    const listaVendas = document.getElementById('lista-vendas');
+    listaVendas.innerHTML = vendas.map(v => {
+        // Prepara os dados para a função de PDF não dar erro de formato
+        const vString = encodeURIComponent(JSON.stringify(v));
 
-    // Histórico mostra TODAS as vendas
-    document.getElementById('lista-vendas').innerHTML = vendas.map(v => `
-        <div class="venda-card">
-            <div>
-                <b>${v.clienteNome}</b><br>
-                <small>${v.dataConvertida.toLocaleString()}</small><br>
-                <small>
+        return `
+            <div class="venda-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="font-size: 1.1rem;">${v.clienteNome}</strong><br>
+                        <small style="color: #64748b;">${v.dataConvertida.toLocaleString()}</small>
+                    </div>
+                    <b style="color: var(--primary); font-size: 1.1rem;">R$ ${v.total.toFixed(2)}</b>
+                </div>
+                
+                <div style="background: #f8fafc; padding: 8px; border-radius: 6px; font-size: 0.85rem; color: #475569;">
                     ${v.itens.map(i => `${i.nome} (x${i.qtdVenda})`).join(', ')}
-                </small>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 5px;">
+                    <button onclick="regerarPdfHistorico('${vString}')" 
+                            style="background: #64748b; margin:0; height:35px; flex: 1; font-size: 13px;">
+                        📄 Baixar PDF
+                    </button>
+                    <button onclick="excluirVenda('${v.id}')" 
+                            style="background: var(--danger); margin:0; height:35px; flex: 1; font-size: 13px;">
+                        🗑️ Excluir
+                    </button>
+                </div>
             </div>
-            <b>R$ ${v.total.toFixed(2)}</b>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
+
+// Função auxiliar para processar o clique do PDF no histórico
+window.regerarPdfHistorico = (vendaString) => {
+    const dados = JSON.parse(decodeURIComponent(vendaString));
+    // Reajusta a data que virou string no encode para o formato que o gerarPDF espera
+    dados.data = new Date(dados.dataConvertida); 
+    window.gerarPDF(dados);
+};
+
+// Função de exclusão atualizada para limpar do DB e da tela
+window.excluirVenda = async (id) => {
+    if(confirm("Tem certeza que deseja excluir esta venda do relatório e do banco de dados?")) {
+        try {
+            const { doc, deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+            await deleteDoc(doc(db, "vendas", id));
+            alert("Venda excluída com sucesso!");
+            carregarDadosRelatorio(); // Recarrega a lista
+        } catch(e) {
+            console.error("Erro ao excluir:", e);
+            alert("Erro ao tentar excluir a venda.");
+        }
+    }
+};
 
     window.salvarCliente = async () => {
         const nome = document.getElementById('c-nome').value;
@@ -535,6 +635,71 @@ window.reiniciarRota = () => {
         carregarDadosRelatorio();
         alert("Nova rota iniciada!");
     }
+};
+
+window.buscarHistoricoCliente = async () => {
+    try {
+        const clienteNome = document.getElementById('sel-hist-cliente').value;
+        if(!clienteNome) {
+            document.getElementById('resumo-cliente').classList.add('hidden');
+            document.getElementById('card-lista-hist-cliente').classList.add('hidden');
+            return;
+        }
+
+        const q = query(collection(db, "vendas"), where("clienteNome", "==", clienteNome));
+        const snap = await getDocs(q);
+        
+        let vendasCliente = snap.docs.map(d => {
+            const dados = d.data();
+            let dataConvertida = dados.data?.toDate ? dados.data.toDate() : new Date(dados.data);
+            return { id: d.id, ...dados, dataConvertida };
+        });
+
+        vendasCliente.sort((a, b) => b.dataConvertida - a.dataConvertida);
+
+        document.getElementById('hist-total-gasto').innerText = `R$ ${vendasCliente.reduce((acc, v) => acc + v.total, 0).toFixed(2)}`;
+        document.getElementById('hist-total-pedidos').innerText = vendasCliente.length;
+        
+        document.getElementById('resumo-cliente').classList.remove('hidden');
+        document.getElementById('card-lista-hist-cliente').classList.remove('hidden');
+
+        document.getElementById('lista-hist-cliente').innerHTML = vendasCliente.map(v => {
+            // Criamos a string segura para o botão
+            const vString = encodeURIComponent(JSON.stringify(v));
+            return `
+                <div class="historico-item">
+                    <div class="historico-data">📅 <b>${v.dataConvertida.toLocaleDateString()}</b> às ${v.dataConvertida.toLocaleTimeString()}</div>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                        <div class="historico-produtos">
+                            ${v.itens.map(i => `<b>${i.qtdVenda}x</b> ${i.nome}`).join('<br>')}
+                        </div>
+                        <div class="historico-total">R$ ${v.total.toFixed(2)}</div>
+                    </div>
+                    <button onclick="baixarSegundaVia('${vString}')" 
+                            style="background: #64748b; color: white; height: 35px; font-size: 13px; margin: 0; width: 100%; cursor: pointer;">
+                        📥 Baixar 2ª Via do PDF
+                    </button>
+                </div>
+            `;
+        }).join('') || '<p style="text-align:center; color:#64748b; padding: 20px;">Sem compras.</p>';
+
+    } catch (erro) {
+        console.error("Erro:", erro);
+    }
+};
+
+// 2. A FUNÇÃO QUE O BOTÃO CHAMA (Importante estar no window)
+window.baixarSegundaVia = async (vendaString) => {
+    const dados = JSON.parse(decodeURIComponent(vendaString));
+    // Reconverte a data para objeto Date
+    dados.data = new Date(dados.dataConvertida); 
+
+    // Busca contagem total para manter o padrão de nome: "Cliente + Total de pedidos"
+    const q = query(collection(db, "vendas"), where("clienteNome", "==", dados.clienteNome));
+    const snap = await getDocs(q);
+    
+    // Chama o seu gerarPDF que já configuramos
+    window.gerarPDF(dados, `${dados.clienteNome} ${snap.size}`);
 };
 </script>
 </body>
